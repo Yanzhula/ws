@@ -14,7 +14,7 @@ class PDOProxy implements iProxy {
 
     public function __construct(array $config = null) {
         if ($config) {
-            $this->_PDO = \ws\ws::getPDO(!empty($config['PDO']) ? $config['PDO'] : 'default');
+            $this->_PDO = \ws\ws::get(!empty($config['PDO']) ? $config['PDO'] : 'PDO');
             $this->_table = $config['table'];
             $this->_idProperty = $config['idProperty'];
         }
@@ -26,11 +26,7 @@ class PDOProxy implements iProxy {
         if (!is_array($fields))
             $fields = array($fields);
         $fields = implode(',', $fields);
-        if ($limit) {
-            $limit = ' LIMIT ' . (($page - 1) * $limit . ',') . $limit;
-        }
-        else
-            $limit = '';
+        $limit = $limit? ' LIMIT ' . (($page - 1) * $limit . ',') . $limit : '';
 
         return $this->_PDO->query('SELECT ' . $fields . ' FROM `' . $this->_table . '` ' . $where . $order . $limit)->fetchAll(\PDO::FETCH_ASSOC);
     }

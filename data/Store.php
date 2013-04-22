@@ -6,14 +6,21 @@ class Store {
      *
      * @var iProxy
      */
-    protected 
+    protected
         $_proxy,
         $_fields,
         $_sorters,
         $_filters=array(),
         $_pageSize=0,
         $_model = 'Model';
-    
+
+    public  $page=1,
+            $pageSize=0,
+            $pages = 1,
+            $totalCount=0,
+            $children=array(),
+            $childrenCount=0;
+
     public function  __construct(array $config=null) {
         if ($config) {
             foreach ($config AS $k=>$v){
@@ -32,36 +39,37 @@ class Store {
         return $this->_proxy;
     }
 
+    /**
+     *
+     * @param type $records
+     * @return array
+     */
+
     public function create($records) {
-        
+
         if (!$records) return false;
-        $result = false;
-        $createOperation = new DataOperation();
-        
+        $ids = array();
+
         if (is_object($records) || is_array($records) && !isset($records[0])) $records = array($records);
         $modelName = $this->_model;
-        
+
         foreach ($records AS $record) {
-            if (!($record instanceof $this->_model)) {
+            if (!($record instanceof $modelName)) {
                 $record = $modelName::create((array)$record);
             }
-            $operation = $record->save();
-            if ($operation->success())
-                $result[] = $record;
-            else {
-                $createOperation = $operation;
-                break;
+            if ($record->save()) {
+                $this->children[] = $record;
+                $ids[] = $record->getId();
             }
         }
-        if ($result) $createOperation->setData(array('children'=>$result));
-        return $createOperation;
+        return $ids;
     }
-    
+
     public function clearFilter(){
         $this->_filters=array();
         return $this;
     }
-    
+
     public function filter($filters, $value=null){
         if ($value!==null) {
             $this->_filters[$filters] = $value;
@@ -77,7 +85,7 @@ class Store {
         }
         return $this;
     }
-    
+
     public function sort($sorters, $direction=null) {
         if ($direction) {
             $this->_sorters[$sorters] = $direction;
@@ -93,72 +101,61 @@ class Store {
         }
         return $this;
     }
-    
-    public function read($page=1, $pageSize=null) {
-        
+
+    public function load($page=1, $pageSize=null) {
+
         if ($pageSize===null) $pageSize = $this->_pageSize;
         if ($page<1) $page=1;
-        
+
         $total = $this->getProxy()->count($this->_filters);
-        
-        $collection = new StoreCollection();
-        $collection->page = $page;
-        $collection->pageSize = $pageSize;
-        $collection->totalCount = $total;
-        $collection->pages = $pageSize? ceil($total/$pageSize) : 1;
+
+        $this->page = $page;
+        $this->pageSize = $pageSize;
+        $this->totalCount = $total;
+        $this->pages = $pageSize? ceil($total/$pageSize) : 1;
         $records = $this->getProxy()->select('*', $this->_filters, $this->_sorters, $pageSize, $page);
         if ($records) {
             $modelName = $this->_model;
             foreach ($records AS $record) {
-                $collection->children[] = new $modelName($record);
+                $this->children[] = new $modelName($record);
             }
-            $collection->childrenCount = sizeof($collection->children);
+            $this->childrenCount = sizeof($this->children);
         }
-        
-        $readOperation = new DataOperation();
-        $readOperation->setData((array)$collection);
-        return $readOperation;
+        return $this->childrenCount;
     }
 
     public function update($records) {
-        
+
         if (!$records) return false;
         $ids = array();
-        $updateOperation = new DataOperation();
-        
+
         if (is_object($records) || is_array($records) && !isset($records[0])) $records = array($records);
         $modelName = $this->_model;
-        
+
         foreach ($records AS $record) {
             if (!($record instanceof $this->_model)) {
                 $values = (array)$record;
                 $id = isset($values[$modelName::getIdProperty()]) ? $values[$modelName::getIdProperty()] : null;
                 if (!$id) continue;
-                
+
                 $record = $modelName::load($id);
                 if (!$record) continue;
-                
+
                 $record->set($values);
             }
-            $operation = $record->save();
-            if ($operation->success())
+            if ($record->save()) {
                 $ids[] = $record->getId();
-            else {
-                $updateOperation = $operation;
-                break;
             }
         }
-        if ($ids) $updateOperation->setData(array('updated'=>$ids));
-        return $updateOperation;
+        return $ids;
     }
-    
+
     public function destroy($records) {
         $ids = array();
-        $destroyOperation = new DataOperation();
-        
+
         if (is_object($records) || is_array($records) && !isset($records[0])) $records = array($records);
         $modelName = $this->_model;
-        
+
         foreach ($records AS $record) {
             if (!($record instanceof $this->_model)) {
                 $values = (array)$record;
@@ -167,23 +164,18 @@ class Store {
                 $record = $modelName::load($id);
                 if (!$record) continue;
             }
-            $operation = $record->destroy();
-            if ($operation->success())
+            if ($record->destroy()) {
                 $ids[] =$record->getId();
-            else {
-                $destroyOperation = $operation;
-                break;
             }
         }
-        if ($ids) $destroyOperation->setData (array('deleted'=>$ids));
-        return $destroyOperation;
+        return $ids;
     }
-        
+
     public function getById($id) {
         $modelName = $this->_model;
         return $modelName::load($id);
     }
-    
+
     public function getIds($where) {
         return $this->getProxy()->selectIds($where);
     }

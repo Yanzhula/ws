@@ -3,16 +3,43 @@ namespace ws;
 
 class Request {
     public $host;
-    public $path=array();
+    public $path;
+    public $method;
 
     public function __construct() {
-        $this->HOST = !empty($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : getenv('HTTP_HOST');
-        $this->REQUEST_PATH = $this::_getRequestPath();
+        $this->host = !empty($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : getenv('HTTP_HOST');
+        $this->path = $this::_getRequestPath();
+        $this->method = $_SERVER['REQUEST_METHOD'];
+    }
+
+    public function get($name=null,$json=false) {
+        return $name? (isset($_GET[$name]) ? ($json? json_decode($_GET[$name],true): $_GET[$name]) : null) : $_GET;
+    }
+
+    public function post($name=null) {
+        return $name ? (isset($_POST[$name]) ? $_POST[$name] : null) : $_POST;
+    }
+
+    public function put($serialized=true) {
+        if ($_POST) return $_POST;
+        $content = file_get_contents('php://input');
+        if ($serialized&&$content) {
+            $copy = $content;
+            $content = json_decode ($content, true);
+            if (!$content)
+                parse_str($copy,$content);
+        }
+        return $content;
+    }
+
+    protected function delete() {
+        return $this->put(true);
     }
 
     public function setLocation($location='') {
-        if (strpos($location,'http')!==0)
-                $location = 'http://'.self::$HOST.'/'.$location;
+        if (strpos($location,'http')!==0) {
+            $location = 'http://'.self::$HOST.'/'.$location;
+        }
         header('Location: '.$location);
         die();
     }

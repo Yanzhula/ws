@@ -20,11 +20,18 @@ class ws {
             self::$_request = new Request();
         return self::$_request;
     }
-   
-    public static function set($name, $data) {
-        self::$_data[$name] = $data;
+
+    public static function set($name, $data=null) {
+        if ($data===null && is_array($name)) {
+            foreach ($name AS $key => $value){
+                self::$_data[$key] = $value;
+            }
+        }
+        else {
+            self::$_data[$name] = $data;
+        }
     }
-    
+
     public static function get($name) {
         if (array_key_exists($name, self::$_data))
                 return self::$_data[$name];
