@@ -3,6 +3,7 @@ namespace ws;
 
 if (version_compare(PHP_VERSION,'5.3', '<')) die('PHP 5.3+ needle! Our version: '.PHP_VERSION);
 if (get_magic_quotes_gpc()) die('get_magic_quotes_gpc() -> need turn off');
+spl_autoload_register('\ws\ws::loadClass');
 
 class ws {
     protected static $_data = array();
@@ -46,6 +47,4 @@ class ws {
     }
 
 }
-
-spl_autoload_register('\ws\ws::loadClass');
 ?>
