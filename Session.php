@@ -7,6 +7,7 @@ class Session {
 
     public function __construct() {
         if (!session_id()) session_start();
+        if (empty($_SESSION[self::SESSION_NAMESPACE])) $_SESSION[self::SESSION_NAMESPACE] = array();
         $this->data = &$_SESSION[self::SESSION_NAMESPACE];
     }
 

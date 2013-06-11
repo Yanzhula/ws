@@ -62,6 +62,7 @@ class Store {
                 $ids[] = $record->getId();
             }
         }
+        $this->totalCount = sizeof($ids);
         return $ids;
     }
 
@@ -122,6 +123,32 @@ class Store {
             $this->childrenCount = sizeof($this->children);
         }
         return $this->childrenCount;
+    }
+
+    public function loadNode($nodeId=0) {
+        $modelName = $this->_model;
+        $nodeProperty = $modelName::getNodeProperty();
+        if (!$nodeProperty) return false;
+        $this->clearFilter();
+        $this->load(1,0);
+        $children=array();
+        foreach ($this->children as $child) {
+            $children[$child->get($nodeProperty)][] = $child;
+        }
+        $this->children = $this->_readNodeTree($children, $nodeId);
+        $this->childrenCount = sizeof($this->children);
+        return $this->childrenCount;
+    }
+
+    protected function _readNodeTree(&$source, $nodeId){
+        $result = array();
+        if (!empty($source[$nodeId])) {
+            foreach($source[$nodeId] AS $record) {
+                $record->children = $this->_readNodeTree($source, $record->getId());
+                $result[] = $record;
+            }
+        }
+        return $result;
     }
 
     public function update($records) {

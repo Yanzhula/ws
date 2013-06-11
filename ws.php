@@ -6,6 +6,7 @@ if (get_magic_quotes_gpc()) die('get_magic_quotes_gpc() -> need turn off');
 spl_autoload_register('\ws\ws::loadClass');
 
 class ws {
+    const VERSION = '7';
     protected static $_data = array();
     protected static $_app;
     protected static $_request;
@@ -45,6 +46,5 @@ class ws {
         !file_exists($load) ?: require_once($load);
         return class_exists($className, false);
     }
-
 }
 ?>

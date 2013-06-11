@@ -38,7 +38,7 @@ class Request {
 
     public function setLocation($location='') {
         if (strpos($location,'http')!==0) {
-            $location = 'http://'.self::$HOST.'/'.$location;
+            $location = 'http://'.$this->host.'/'.$location;
         }
         header('Location: '.$location);
         die();

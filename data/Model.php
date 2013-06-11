@@ -9,6 +9,7 @@ class Model {
 
     protected static
         $_idProperty = 'id',
+        $_nodeProperty,
         $_fields,
         $_proxyConfig=array(),
 
@@ -66,6 +67,9 @@ class Model {
     public static function getIdProperty() {
         return static::$_idProperty;
     }
+    public static function getNodeProperty() {
+        return static::$_nodeProperty;
+    }
 
     public static function getFields(){
         return static::$_fields;
@@ -83,7 +87,7 @@ class Model {
     }
 
     public function __set($name, $value) {
-        return $this->set($name,$value);
+        return $this->set($name,$value, true);
     }
 
     public function __get($name) {
@@ -105,11 +109,12 @@ class Model {
             : !empty($this->_modifiedFields);
     }
 
-    public function set($name, $value=null) {
+    public function set($name, $value=null, $silent=false) {
         $vals = is_array($name)||is_object($name)? $name : array($name=>$value);
 
         foreach ($vals AS $k=>$v) {
-            $v = static::_processFieldValue($k, $v,$this);
+                $v = static::_processFieldValue($k, $v, $this, $silent);
+
             if ($v!==null) {
                 $this->{$k} = $v;
                 $this->_setModified($k);
@@ -191,7 +196,7 @@ class Model {
         return (array)$this->_modifiedFields;
     }
 
-    protected static function _processFieldValue($fieldName,$value, $model) {
+    protected static function _processFieldValue($fieldName,$value, $model, $silent=false) {
         if (!array_key_exists($fieldName, static::$_fields)) return $value;
         $field = static::$_fields[$fieldName];
         if ($value===null && isset($field['default'])) $value=$field['default'];
@@ -210,6 +215,9 @@ class Model {
                     $value = (bool)$value;
                     break;
             }
+        }
+        if (!$silent && !empty($field['setter']) && method_exists($model, $field['setter'])) {
+            $value = call_user_func(array($model, $field['setter']), $value);
         }
         return $value;
     }
