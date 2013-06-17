@@ -27,14 +27,13 @@ class PDOProxy implements iProxy {
             $fields = array($fields);
         $fields = implode(',', $fields);
         $limit = $limit? ' LIMIT ' . (($page - 1) * $limit . ',') . $limit : '';
-
         return $this->_PDO->query('SELECT ' . $fields . ' FROM `' . $this->_table . '` ' . $where . $order . $limit)->fetchAll(\PDO::FETCH_ASSOC);
     }
 
     public function selectIds($where) {
         $sqlWhere = $where ? $this->_makeWhereSQL($where) : '';
         return $this->_PDO->query('SELECT `' . $this->_idProperty . '` FROM `' . $this->_table . '` ' . $sqlWhere)
-                        ->fetchAll(PDO::FETCH_COLUMN);
+                        ->fetchAll(\PDO::FETCH_COLUMN);
     }
 
     public function selectById($id, $fields = '*') {
@@ -136,18 +135,27 @@ class PDOProxy implements iProxy {
             if (is_array($value)) {
 
                 $isRange = false;
-                if (array_key_exists('from', $value)) {
-                    $sql[] = '`' . $prop . '` >= ' . $this->_PDO->quote($value['from']);
+                if (array_key_exists('gt', $value)) {
+                    $sql[] = '`' . $prop . '` > ' . $this->_PDO->quote($value['gt']);
                     $isRange = true;
                 }
-                if (array_key_exists('to', $value)) {
-                    $sql[] = '`' . $prop . '` <= ' . $this->_PDO->quote($value['to']);
+                if (array_key_exists('lt', $value)) {
+                    $sql[] = '`' . $prop . '` < ' . $this->_PDO->quote($value['lt']);
+                    $isRange = true;
+                }
+                if (array_key_exists('gte', $value)) {
+                    $sql[] = '`' . $prop . '` >= ' . $this->_PDO->quote($value['gte']);
+                    $isRange = true;
+                }
+                if (array_key_exists('lte', $value)) {
+                    $sql[] = '`' . $prop . '` <= ' . $this->_PDO->quote($value['lte']);
                     $isRange = true;
                 }
                 if (array_key_exists('not', $value)) {
                     $sql[] = '`' . $prop . '` <> ' . $this->_PDO->quote($value['not']);
                     $isRange = true;
                 }
+
                 if ($isRange)
                     continue;
 

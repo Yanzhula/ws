@@ -2,7 +2,7 @@
 
 namespace ws;
 
-class RestResponse {
+class DataResponse {
     public $success = false;
     public $message;
 

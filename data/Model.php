@@ -75,10 +75,15 @@ class Model {
         return static::$_fields;
     }
 
-    public static function makeStore() {
-        return new Store(array(
-            'model' => get_called_class()
-        ));
+    /**
+     *
+     * @param array $config
+     * @return \ws\data\Store
+     */
+
+    public static function makeStore(array $config=null) {
+        $config['model'] = get_called_class();
+        return new Store($config);
     }
 
     public function __construct($data=null) {

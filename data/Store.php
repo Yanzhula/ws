@@ -11,7 +11,6 @@ class Store {
         $_fields,
         $_sorters,
         $_filters=array(),
-        $_pageSize=0,
         $_model = 'Model';
 
     public  $page=1,
@@ -93,28 +92,35 @@ class Store {
         }
         elseif (is_array($sorters)) {
             foreach ($sorters AS $k=>$v) {
-                if (is_array($v) && array_key_exists('sort', $v) && array_key_exists('dir', $v)) {
-                    $this->_sorters[$v['sort']] = $v['dir'];
+                if (is_array($v)) {
+                    if (array_key_exists('property', $v) && array_key_exists('direction', $v)) {
+                        $this->_sorters[$v['property']] = $v['direction'];
+                    }
                 }
-                else
+                else {
                     $this->_sorters[$k] = $v;
+                }
             }
         }
         return $this;
     }
 
-    public function load($page=1, $pageSize=null) {
+    public function load($page=null, $pageSize=null) {
 
-        if ($pageSize===null) $pageSize = $this->_pageSize;
-        if ($page<1) $page=1;
+        if ($page!==null){
+            $this->page = $page;
+        }
+        if ($pageSize!==null){
+            $this->pageSize = $pageSize;
+        }
 
-        $total = $this->getProxy()->count($this->_filters);
+        $this->page = max(1, (int)$this->page);
+        $this->pageSize = max(0, (int)$this->pageSize);
 
-        $this->page = $page;
-        $this->pageSize = $pageSize;
-        $this->totalCount = $total;
-        $this->pages = $pageSize? ceil($total/$pageSize) : 1;
-        $records = $this->getProxy()->select('*', $this->_filters, $this->_sorters, $pageSize, $page);
+        $this->totalCount = $this->getProxy()->count($this->_filters);
+        $this->pages = $this->pageSize? ceil($this->totalCount/$this->pageSize) : 1;
+        $this->children = array();
+        $records = $this->getProxy()->select('*', $this->_filters, $this->_sorters, $this->pageSize, $this->page);
         if ($records) {
             $modelName = $this->_model;
             foreach ($records AS $record) {

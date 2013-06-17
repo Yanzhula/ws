@@ -8,16 +8,16 @@ class SessionProxy implements iProxy {
     protected $_table;
     protected $_idProperty;
     protected $_proxyData;
-    
+
     public function __construct(array $config=null) {
         if ($config) {
             $this->_table = $config['table'];
             $this->_idProperty = $config['idProperty'];
-            
+
             if (empty($_SESSION['ws']['SessionProxy'][$this->_table]['data']))
                 $_SESSION['ws']['SessionProxy'][$this->_table]['data'] = array();
             $this->_proxyData = &$_SESSION['ws']['SessionProxy'][$this->_table]['data'];
-            
+
         }
     }
 
@@ -29,7 +29,7 @@ class SessionProxy implements iProxy {
         $this->_sortData($rows, $order);
         return $rows;
     }
-    
+
     public function selectIds($where){
         $rows = $this->_getData($where);
         $ids = array();
@@ -38,11 +38,12 @@ class SessionProxy implements iProxy {
     }
 
     public function selectById($id, $fields='*') {
-        return array_key_exists($id, $this->_proxyData)? 
+        return array_key_exists($id, $this->_proxyData)?
             $this->_proxyData[$id]: null;
     }
     public function selectBy($where, $fields='*') {
-        return $this->_getData($where);
+        $result = $this->_getData($where);
+        return $result? $result[0]: false;
     }
     public function idExists($id){
         return (bool) array_key_exists($id, $this->_proxyData);
@@ -70,7 +71,7 @@ class SessionProxy implements iProxy {
         }
         return $this;
     }
-    
+
     public function deleteById($id){
         return $this->delete(array($this->_idProperty=>$id));
     }
@@ -78,21 +79,21 @@ class SessionProxy implements iProxy {
     public function count($where=false) {
         return sizeof($this->_getData($where));
     }
-    
+
     protected function _getNextId(){
         if (!isset($_SESSION['ws']['SessionProxy'][$this->_table]['AI']))
             $_SESSION['ws']['SessionProxy'][$this->_table]['AI'] = 0;
         ++$_SESSION['ws']['SessionProxy'][$this->_table]['AI'];
         return $_SESSION['ws']['SessionProxy'][$this->_table]['AI'];
     }
-    
+
     protected function _insertRow($row){
         $id = $this->_getNextId();
         $row[$this->_idProperty] = $id;
         $this->_proxyData[$id] = $row;
         return $id;
     }
-    
+
     protected function _removeRow($id){
         if ($id) unset($this->_proxyData[$id]);
         return $this;
@@ -101,7 +102,7 @@ class SessionProxy implements iProxy {
         if ($id) $this->_proxyData[$id] = $row;
         return $this;
     }
-    
+
     protected function _getData(array $where){
         $result = $this->_proxyData;
         if ($result && $where) {
@@ -117,10 +118,10 @@ class SessionProxy implements iProxy {
         }
         return $result;
     }
-    
+
     protected function _matchRow(array &$row, array $where) {
         $result = true;
-        
+
         foreach ($where AS $prop => $value) {
             if (!array_key_exists($prop, $row)) {
                 $result = false;
@@ -148,7 +149,7 @@ class SessionProxy implements iProxy {
                         $result = false;
                         break;
                     }
-                }           
+                }
                 if ($isRange) continue;
                 if (!in_array($row[$prop], $value)) {
                     $result = false;
@@ -162,9 +163,9 @@ class SessionProxy implements iProxy {
         }
         return $result;
     }
-    
+
     protected function _sortData(array &$data, array $order=null) {
         return $data;
-    } 
+    }
 }
 ?>
