@@ -31,8 +31,12 @@ class PDOProxy implements iProxy {
     }
 
     public function selectIds($where) {
+        return $this->selectFieldValues($this->_idProperty, $where);
+    }
+
+    public function selectFieldValues($field, $where) {
         $sqlWhere = $where ? $this->_makeWhereSQL($where) : '';
-        return $this->_PDO->query('SELECT `' . $this->_idProperty . '` FROM `' . $this->_table . '` ' . $sqlWhere)
+        return $this->_PDO->query('SELECT `' . $field . '` FROM `' . $this->_table . '` ' . $sqlWhere)
                         ->fetchAll(\PDO::FETCH_COLUMN);
     }
 
@@ -111,6 +115,7 @@ class PDOProxy implements iProxy {
     protected function _makeWhereSQL(array $where) {
         $sql = array();
         foreach ($where AS $prop => $value) {
+
             if ($prop == '_search_') {
 
                 $words = preg_replace('#[^0-9A-Za-z\xD0 -\xD1\s\-]+#i', ' ', strip_tags($value['q']));

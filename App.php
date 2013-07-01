@@ -6,9 +6,9 @@ abstract class App {
 
     protected function _getControllerFromRequest() {
         $path = explode('/', ws::request()->path);
-        $controllerName=  '\app\controllers\NotFound';
+        $controllerName=  ws::get('app.controller.default');
         $controllerAction = 'indexAction';
-        if (empty($path[0])) $controllerName = '\app\controllers\Home';
+        if (empty($path[0])) $controllerName = ws::get('app.controller.home');
         else{
             $names = array_map('ucfirst', $path);
             $path = array();

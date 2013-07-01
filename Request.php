@@ -8,7 +8,7 @@ class Request {
 
     public function __construct() {
         $this->host = !empty($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : getenv('HTTP_HOST');
-        $this->path = $this::_getRequestPath();
+        $this->path = $this->_getRequestPath();
         $this->method = $_SERVER['REQUEST_METHOD'];
     }
 

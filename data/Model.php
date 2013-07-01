@@ -9,13 +9,13 @@ class Model {
 
     protected static
         $_idProperty = 'id',
-        $_nodeProperty,
+        $_parentProperty,
         $_fields,
         $_proxyConfig=array(),
-
+        $_validations,
         $_associations=array();
 
-    protected $_modifiedFields;
+    protected $_modifiedFields, $_validationErrors;
     /**
      * @var Proxy
      */
@@ -67,8 +67,9 @@ class Model {
     public static function getIdProperty() {
         return static::$_idProperty;
     }
-    public static function getNodeProperty() {
-        return static::$_nodeProperty;
+
+    public static function getParentProperty() {
+        return static::$_parentProperty;
     }
 
     public static function getFields(){
@@ -152,6 +153,78 @@ class Model {
         return $result;
     }
 
+    protected function _validate($type='*') {
+
+        $this->_cleanValidationErrors();
+        if (empty(static::$_validations[$type])) return true;
+
+        foreach (static::$_validations[$type] AS $field => $rules) {
+
+            switch($rules['type']) {
+                case 'required':
+                    if ($this->get($field)===null) {
+                        $this->_addValidationError($field, $rules);
+                    }
+                break;
+
+                case 'length':
+                    $l = mb_strlen($this->get($field));
+                    if (!empty($rules['min']) && $l < $rules['min']) {
+                        $this->_addValidationError($field, $rules);
+                    }
+                    if (!empty($rules['max']) && $l > $rules['max']) {
+                        $this->_addValidationError($field, $rules);
+                    }
+                    unset($l);
+                break;
+
+                case 'unique':
+                    $r = static::loadBy(array($field => $this->get($field)));
+                    if ($r && $r->getId()!==$this->getId()) {
+                        $this->_addValidationError($field, $rules);
+                    }
+                break;
+
+                case 'email':
+                    if (!preg_match('/[\w\.\-]+@\w+[\w\.\-]*?\.\w{1,4}/',$this->get($field))) {
+                        $this->_addValidationError($field, $rules);
+                    }
+                break;
+
+                case 'matcher':
+                    if (!preg_match($rules['matcher'], $this->get($field))) {
+                        $this->_addValidationError($field, $rules);
+                    }
+                break;
+            }
+        }
+        return !$this->_hasValidationErrors();
+    }
+
+    public function isValid($type='*') {
+        return $this->_validate($type);
+    }
+
+    protected function _cleanValidationErrors() {
+        $this->_validationErrors = array();
+        return $this;
+    }
+
+    protected function _addValidationError($fieldName, $rules) {
+        $this->_validationErrors[] = array(
+            'field' => $fieldName,
+            'message' => !empty($rules['message'])? $rules['message'] : 'Validation error'
+        );
+    }
+
+    protected function _hasValidationErrors() {
+        return (bool) sizeof($this->_validationErrors);
+    }
+
+    public function getValidationErrors() {
+        return $this->_validationErrors;
+    }
+
     public function save(array $data=null) {
         if ($data) $this->set ($data);
         $exists = $this->getId()? static::getProxy()->idExists($this->getId()): false;
@@ -182,7 +255,6 @@ class Model {
         }
         return false;
     }
-
 
     public function isReadable() {
         return true;

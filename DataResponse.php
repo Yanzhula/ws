@@ -6,6 +6,12 @@ class DataResponse {
     public $success = false;
     public $message;
 
+    public function __construct($flagSuccess=null) {
+        if ($flagSuccess!==null) {
+            $this->success = (bool)$flagSuccess;
+        }
+    }
+
     public function apply($data){
         foreach ($data AS $k => $v) $this->{$k} = $v;
     }

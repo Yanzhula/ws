@@ -86,6 +86,10 @@ class Store {
         return $this;
     }
 
+    public function getFilters(){
+        return $this->_filters;
+    }
+
     public function sort($sorters, $direction=null) {
         if ($direction) {
             $this->_sorters[$sorters] = $direction;
@@ -117,7 +121,7 @@ class Store {
         $this->page = max(1, (int)$this->page);
         $this->pageSize = max(0, (int)$this->pageSize);
 
-        $this->totalCount = $this->getProxy()->count($this->_filters);
+        $this->totalCount = $this->totalCount();
         $this->pages = $this->pageSize? ceil($this->totalCount/$this->pageSize) : 1;
         $this->children = array();
         $records = $this->getProxy()->select('*', $this->_filters, $this->_sorters, $this->pageSize, $this->page);
@@ -133,13 +137,13 @@ class Store {
 
     public function loadNode($nodeId=0) {
         $modelName = $this->_model;
-        $nodeProperty = $modelName::getNodeProperty();
-        if (!$nodeProperty) return false;
+        $parentProperty = $modelName::getParentProperty();
+        if (!$parentProperty) return false;
         $this->clearFilter();
         $this->load(1,0);
         $children=array();
         foreach ($this->children as $child) {
-            $children[$child->get($nodeProperty)][] = $child;
+            $children[$child->get($parentProperty)][] = $child;
         }
         $this->children = $this->_readNodeTree($children, $nodeId);
         $this->childrenCount = sizeof($this->children);
@@ -155,6 +159,13 @@ class Store {
             }
         }
         return $result;
+    }
+
+    public function totalCount() {
+        if (!$this->totalCount){
+            $this->totalCount = $this->getProxy()->count($this->_filters);
+        }
+        return $this->totalCount;
     }
 
     public function update($records) {
