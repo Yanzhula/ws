@@ -42,7 +42,7 @@ class ws {
 
     public static function loadClass($className) {
         $className = str_replace(array('/', '\\'), \DIRECTORY_SEPARATOR, $className);
-        $load = $className . '.php';
+        $load = ROOT_DIR.DIRECTORY_SEPARATOR.$className . '.php';
         !file_exists($load) ?: require_once($load);
         return class_exists($className, false);
     }

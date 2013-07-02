@@ -2,14 +2,13 @@
 namespace ws;
 
 class Request {
-    public $host;
-    public $path;
-    public $method;
+    public $host,$path, $method, $isXhr;
 
     public function __construct() {
         $this->host = !empty($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : getenv('HTTP_HOST');
         $this->path = $this->_getRequestPath();
         $this->method = $_SERVER['REQUEST_METHOD'];
+        $this->isXhr = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest');
     }
 
     public function get($name=null,$json=false) {
