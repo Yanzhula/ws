@@ -128,7 +128,7 @@ class Store {
         if ($records) {
             $modelName = $this->_model;
             foreach ($records AS $record) {
-                $this->children[] = new $modelName($record);
+                $this->children[] = new $modelName($record, true);
             }
             $this->childrenCount = sizeof($this->children);
         }

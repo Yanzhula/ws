@@ -15,7 +15,7 @@ class Model {
         $_validations,
         $_associations=array();
 
-    protected $_modifiedFields, $_validationErrors;
+    protected $_modifiedFields = array(), $_validationErrors;
     /**
      * @var Proxy
      */
@@ -25,7 +25,7 @@ class Model {
         $instance=$data=null;
         $data = static::getProxy()->selectById($id);
         if ($data){
-            $instance = new static($data);
+            $instance = new static($data, true);
         }
         return $instance;
     }
@@ -34,7 +34,7 @@ class Model {
         $instance=$data=null;
         $data = static::getProxy()->selectBy($where);
         if ($data){
-            $instance = new static($data);
+            $instance = new static($data, true);
         }
         return $instance;
     }
@@ -87,9 +87,8 @@ class Model {
         return new Store($config);
     }
 
-    public function __construct($data=null) {
-        if ($data) $this->set($data);
-        if ($this->getId()) $this->_setModified(false);
+    public function __construct($data=null, $silent=false) {
+        if ($data) $this->set($data, null, $silent);
     }
 
     public function __set($name, $value) {
@@ -111,7 +110,7 @@ class Model {
 
     public function isModified($field=null) {
         return $field?
-            is_array($this->_modifiedFields) && array_key_exists($field, $this->_modifiedFields)
+            in_array($field, $this->_modifiedFields)
             : !empty($this->_modifiedFields);
     }
 
@@ -122,8 +121,9 @@ class Model {
                 $v = static::_processFieldValue($k, $v, $this, $silent);
 
             if ($v!==null) {
+                if (isset($this->{$k}) && $this->{$k} === $v) continue;
                 $this->{$k} = $v;
-                $this->_setModified($k);
+                if (!$silent) $this->_setModified($k);
             }
         }
         return $this;
@@ -132,7 +132,7 @@ class Model {
     public function getChanges() {
         $modified = $this->_getModified();
         $vals = array();
-        foreach ($modified AS $k=>$v) {
+        foreach ($modified AS $k) {
             $vals[$k] = $this->get($k);
         }
         return $vals;
@@ -161,42 +161,47 @@ class Model {
         foreach (static::$_validations[$type] AS $field => $rules) {
 
             switch($rules['type']) {
-                case 'required':
-                    if ($this->get($field)===null) {
-                        $this->_addValidationError($field, $rules);
-                    }
-                break;
-
                 case 'length':
                     $l = mb_strlen($this->get($field));
                     if (!empty($rules['min']) && $l < $rules['min']) {
-                        $this->_addValidationError($field, $rules);
+                        $this->_addValidationError($field, 'length', array(
+                            'min' => $rules['min']
+                        ));
                     }
                     if (!empty($rules['max']) && $l > $rules['max']) {
-                        $this->_addValidationError($field, $rules);
+                        $this->_addValidationError($field, 'length', array(
+                            'max' => $rules['max']
+                        ));
                     }
                     unset($l);
                 break;
-
-                case 'unique':
-                    $r = static::loadBy(array($field => $this->get($field)));
-                    if ($r && $r->getId()!==$this->getId()) {
-                        $this->_addValidationError($field, $rules);
-                    }
-                break;
-
                 case 'email':
                     if (!preg_match('/[\w\.\-]+@\w+[\w\.\-]*?\.\w{1,4}/',$this->get($field))) {
-                        $this->_addValidationError($field, $rules);
+                        $this->_addValidationError($field, 'email');
                     }
                 break;
-
                 case 'matcher':
                     if (!preg_match($rules['matcher'], $this->get($field))) {
-                        $this->_addValidationError($field, $rules);
+                        $this->_addValidationError($field, 'matcher', array(
+                            'regexp' => $rules['matcher']
+                        ));
                     }
                 break;
             }
+
+            if (!empty($rules['required'])) {
+                if ($this->get($field)===null) {
+                    $this->_addValidationError($field, 'required');
+                }
+            }
+
+            if (!empty($rules['unique'])) {
+                $r = static::loadBy(array($field => $this->get($field)));
+                if ($r && $r->getId()!==$this->getId()) {
+                    $this->_addValidationError($field, 'unique');
+                }
+            }
+
         }
         return !$this->_hasValidationErrors();
     }
@@ -210,11 +215,12 @@ class Model {
         return $this;
     }
 
-    protected function _addValidationError($fieldName, $rules) {
-        $this->_validationErrors[] = array(
-            'field' => $fieldName,
-            'message' => !empty($rules['message'])? $rules['message'] : 'Validation error'
-        );
+    protected function _addValidationError($fieldName, $type, array $attr = null) {
+        $e = array('field' => $fieldName, 'type' => $type);
+        if (is_array($attr)) {
+            $e = array_merge($e, $attr);
+        }
+        $this->_validationErrors[] = $e;
     }
 
     protected function _hasValidationErrors() {
@@ -231,19 +237,27 @@ class Model {
         $result = false;
 
         if ($this->isWritable($exists? self::OP_UPDATE : self::OP_CREATE)) {
-            if (!$exists) {
-                $id = static::getProxy()->insert($this->get());
+            if ($this->isValid()) {
+                if (!$exists) {
+                    $id = static::getProxy()->insert($this->get());
 
-                if ($id) {
-                    $this->setId($id);
+                    if ($id) {
+                        $this->setId($id);
+                    }
                 }
+                else {
+                    $data = $this->getChanges();
+                    if ($data) static::getProxy()->updateById($this->getId(),$data);
+                }
+                $result = true;
+                $this->_setModified(false);
             }
             else {
-                $data = $this->getChanges();
-                if ($data) static::getProxy()->updateById($this->getId(),$data);
+                //exception
             }
-            $result = true;
-            $this->_setModified(false);
+        }
+        else {
+            //exception
         }
         return $result;
     }
@@ -264,13 +278,17 @@ class Model {
     }
 
     protected function _setModified($field) {
-        if ($field===false) $this->_modifiedFields = array();
-        else $this->_modifiedFields[$field]=1;
+        if ($field===false) {
+            $this->_modifiedFields = array();
+        }
+        elseif (!in_array($field, $this->_modifiedFields)) {
+            $this->_modifiedFields[]=$field;
+        }
         return $this;
     }
 
     protected function _getModified() {
-        return (array)$this->_modifiedFields;
+        return $this->_modifiedFields;
     }
 
     protected static function _processFieldValue($fieldName,$value, $model, $silent=false) {
