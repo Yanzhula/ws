@@ -159,34 +159,35 @@ class Model {
         if (empty(static::$_validations[$type])) return true;
 
         foreach (static::$_validations[$type] AS $field => $rules) {
-
-            switch($rules['type']) {
-                case 'length':
-                    $l = mb_strlen($this->get($field));
-                    if (!empty($rules['min']) && $l < $rules['min']) {
-                        $this->_addValidationError($field, 'length', array(
-                            'min' => $rules['min']
-                        ));
-                    }
-                    if (!empty($rules['max']) && $l > $rules['max']) {
-                        $this->_addValidationError($field, 'length', array(
-                            'max' => $rules['max']
-                        ));
-                    }
-                    unset($l);
-                break;
-                case 'email':
-                    if (!preg_match('/[\w\.\-]+@\w+[\w\.\-]*?\.\w{1,4}/',$this->get($field))) {
-                        $this->_addValidationError($field, 'email');
-                    }
-                break;
-                case 'matcher':
-                    if (!preg_match($rules['matcher'], $this->get($field))) {
-                        $this->_addValidationError($field, 'matcher', array(
-                            'regexp' => $rules['matcher']
-                        ));
-                    }
-                break;
+            if (!empty($rules['type'])) {
+                switch($rules['type']) {
+                    case 'length':
+                        $l = mb_strlen($this->get($field));
+                        if (!empty($rules['min']) && $l < $rules['min']) {
+                            $this->_addValidationError($field, 'length', array(
+                                'min' => $rules['min']
+                            ));
+                        }
+                        if (!empty($rules['max']) && $l > $rules['max']) {
+                            $this->_addValidationError($field, 'length', array(
+                                'max' => $rules['max']
+                            ));
+                        }
+                        unset($l);
+                    break;
+                    case 'email':
+                        if (!preg_match('/[\w\.\-]+@\w+[\w\.\-]*?\.\w{1,4}/',$this->get($field))) {
+                            $this->_addValidationError($field, 'email');
+                        }
+                    break;
+                    case 'matcher':
+                        if (!preg_match($rules['matcher'], $this->get($field))) {
+                            $this->_addValidationError($field, 'matcher', array(
+                                'regexp' => $rules['matcher']
+                            ));
+                        }
+                    break;
+                }
             }
 
             if (!empty($rules['required'])) {

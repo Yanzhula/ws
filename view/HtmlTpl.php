@@ -2,7 +2,7 @@
 namespace ws\view;
 
 class HtmlTpl {
-    
+
     protected $_tpl;
     protected $_data=array();
 
@@ -35,18 +35,21 @@ class HtmlTpl {
     public function setLayout($layout) {
         $this->_tpl = $layout;
     }
-    
-    public function render() {
-        if (!$this->getLayout()) return '';
-        extract($this->_data);
+
+    public function render($layout=null, $data=null) {
+        if (!$layout) $layout = $this->getLayout();
+        if (!$layout) return '';
+        if (!is_readable('tpls/'.$layout.'.tpl.php')) return '';
+        if (!$data) $data = $this->_data;
+        extract($data);
         ob_start();
-        include 'tpls/'.$this->getLayout() .'.tpl.php';
+        include 'tpls/'.$layout.'.tpl.php';
         return ob_get_clean();
     }
 
     public function __toString() {
         return $this->render();
-    }    
-    
+    }
+
 }
 ?>
