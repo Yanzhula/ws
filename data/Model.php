@@ -12,56 +12,53 @@ class Model {
         $_parentProperty,
         $_fields,
         $_proxyConfig=array(),
-        $_validations,
         $_associations=array();
 
-    protected $_modifiedFields = array(), $_validationErrors;
-    /**
-     * @var Proxy
-     */
-    private static $_proxy;
+    protected $_proxy, $_modifiedFields = array();
 
-    public static function load($id) {
+    public static function load($id, $proxy=null) {
         $instance=$data=null;
-        $data = static::getProxy()->selectById($id);
+        $proxy = $proxy? $proxy : static::createProxy();
+        $data = $proxy->selectById($id);
         if ($data){
             $instance = new static($data, true);
         }
         return $instance;
     }
 
-    public static function loadBy($where) {
+    public static function loadBy($where, $proxy=null) {
         $instance=$data=null;
-        $data = static::getProxy()->selectBy($where);
+        $proxy = $proxy? $proxy : static::createProxy();
+        $data = $proxy->selectBy($where);
         if ($data){
             $instance = new static($data, true);
         }
         return $instance;
-    }
-    /**
-     * @TODO fireEvent = create
-     * @param array $data
-     * @return Model
-     */
-
-    public static function create(array $data=null){
-        return new static($data);
     }
 
     /**
      *
      * @return iProxy
      */
-    public static function getProxy() {
-        $thisClass = get_called_class();
-        if (empty(self::$_proxy[$thisClass])) {
-            $config = static::$_proxyConfig;
-            $proxyType = $config['type'];
-            unset($config['type']);
-            $config['idProperty'] = static::getIdProperty();
-            self::$_proxy[$thisClass] = new $proxyType($config);
+
+    public static function createProxy() {
+        $config = static::$_proxyConfig;
+        $proxyType = $config['type'];
+        unset($config['type']);
+        $config['idProperty'] = static::getIdProperty();
+        return new $proxyType($config);
+    }
+
+    public function setProxy(iProxy $proxy) {
+        $this->_proxy = $proxy;
+        return $this;
+    }
+
+    public function getProxy() {
+        if (!$this->_proxy) {
+            $this->_proxy = static::createProxy();
         }
-        return self::$_proxy[$thisClass];
+        return $this->_proxy;
     }
 
     public static function getIdProperty() {
@@ -87,8 +84,17 @@ class Model {
         return new Store($config);
     }
 
-    public function __construct($data=null, $silent=false) {
+    /**
+     * @TODO fireEvent = create
+     * @param array $data
+     * @return \ws\Model
+     */
+    public function __construct(array $data=null, $silent=false) {
         if ($data) $this->set($data, null, $silent);
+    }
+    //alias of constructor
+    public static function create(array $data=null, $silent=false){
+        return new static($data, $silent);
     }
 
     public function __set($name, $value) {
@@ -104,7 +110,7 @@ class Model {
     }
 
     public function setId($id) {
-        if ($id) $this->set(static::getIdProperty(),$id);
+        $this->set(static::getIdProperty(),$id);
         return $this;
     }
 
@@ -153,109 +159,27 @@ class Model {
         return $result;
     }
 
-    protected function _validate($type='*') {
-
-        $this->_cleanValidationErrors();
-        if (empty(static::$_validations[$type])) return true;
-
-        foreach (static::$_validations[$type] AS $field => $rules) {
-            if (!empty($rules['type'])) {
-                switch($rules['type']) {
-                    case 'length':
-                        $l = mb_strlen($this->get($field));
-                        if (!empty($rules['min']) && $l < $rules['min']) {
-                            $this->_addValidationError($field, 'length', array(
-                                'min' => $rules['min']
-                            ));
-                        }
-                        if (!empty($rules['max']) && $l > $rules['max']) {
-                            $this->_addValidationError($field, 'length', array(
-                                'max' => $rules['max']
-                            ));
-                        }
-                        unset($l);
-                    break;
-                    case 'email':
-                        if (!preg_match('/[\w\.\-]+@\w+[\w\.\-]*?\.\w{1,4}/',$this->get($field))) {
-                            $this->_addValidationError($field, 'email');
-                        }
-                    break;
-                    case 'matcher':
-                        if (!preg_match($rules['matcher'], $this->get($field))) {
-                            $this->_addValidationError($field, 'matcher', array(
-                                'regexp' => $rules['matcher']
-                            ));
-                        }
-                    break;
-                }
-            }
-
-            if (!empty($rules['required'])) {
-                if ($this->get($field)===null) {
-                    $this->_addValidationError($field, 'required');
-                }
-            }
-
-            if (!empty($rules['unique'])) {
-                $r = static::loadBy(array($field => $this->get($field)));
-                if ($r && $r->getId()!==$this->getId()) {
-                    $this->_addValidationError($field, 'unique');
-                }
-            }
-
-        }
-        return !$this->_hasValidationErrors();
-    }
-
-    public function isValid($type='*') {
-        return $this->_validate($type);
-    }
-
-    protected function _cleanValidationErrors() {
-        $this->_validationErrors = array();
-        return $this;
-    }
-
-    protected function _addValidationError($fieldName, $type, array $attr = null) {
-        $e = array('field' => $fieldName, 'type' => $type);
-        if (is_array($attr)) {
-            $e = array_merge($e, $attr);
-        }
-        $this->_validationErrors[] = $e;
-    }
-
-    protected function _hasValidationErrors() {
-        return (bool) sizeof($this->_validationErrors);
-    }
-
-    public function getValidationErrors() {
-        return $this->_validationErrors;
-    }
-
-    public function save(array $data=null) {
+    public function save(array $data=null, $proxy=null) {
         if ($data) $this->set ($data);
-        $exists = $this->getId()? static::getProxy()->idExists($this->getId()): false;
+        $proxy = $proxy? $proxy : $this->getProxy();
+
+        $exists = $this->getId()? $proxy->idExists($this->getId()): false;
         $result = false;
 
-        if ($this->isWritable($exists? self::OP_UPDATE : self::OP_CREATE)) {
-            if ($this->isValid()) {
-                if (!$exists) {
-                    $id = static::getProxy()->insert($this->get());
+        if ($this->isWritable($exists? self::OP_UPDATE : self::OP_CREATE, $proxy)) {
+            if (!$exists) {
+                $id = $proxy->insert($this->get());
 
-                    if ($id) {
-                        $this->setId($id);
-                    }
+                if ($id) {
+                    $this->setId($id);
                 }
-                else {
-                    $data = $this->getChanges();
-                    if ($data) static::getProxy()->updateById($this->getId(),$data);
-                }
-                $result = true;
-                $this->_setModified(false);
             }
             else {
-                //exception
+                $data = $this->getChanges();
+                if ($data) $proxy->updateById($this->getId(),$data);
             }
+            $result = true;
+            $this->_setModified(false);
         }
         else {
             //exception
@@ -263,9 +187,10 @@ class Model {
         return $result;
     }
 
-    public function destroy() {
-        if ($this->isWritable(self::OP_DESTROY)) {
-            static::getProxy()->deleteById($this->getId());
+    public function destroy($proxy=null) {
+        $proxy = $proxy? $proxy : $this->getProxy();
+        if ($this->isWritable(self::OP_DESTROY, $proxy)) {
+            $proxy->deleteById($this->getId());
             return true;
         }
         return false;
@@ -274,7 +199,7 @@ class Model {
     public function isReadable() {
         return true;
     }
-    public function isWritable($op=null) {
+    public function isWritable($op=null, $proxy=null) {
         return true;
     }
 

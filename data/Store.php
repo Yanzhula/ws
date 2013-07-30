@@ -11,7 +11,8 @@ class Store {
         $_fields,
         $_sorters,
         $_filters=array(),
-        $_model = 'Model';
+        $_model = '\ws\Model',
+        $_proxyConfig=array();
 
     public  $page=1,
             $pageSize=0,
@@ -19,6 +20,29 @@ class Store {
             $totalCount=0,
             $children=array(),
             $childrenCount=0;
+
+    // Listeners
+    public function beforeCreate(&$records) {
+        return true;
+    }
+    public function afterCreate(&$records) {
+        return true;
+    }
+
+    public function beforeUpdate(&$records) {
+        return true;
+    }
+    public function afterUpdate(&$records) {
+        return true;
+    }
+
+    public function beforeDestroy(&$records) {
+        return true;
+    }
+
+    public function afterDestroy(&$records) {
+        return true;
+    }
 
     public function  __construct(array $config=null) {
         if ($config) {
@@ -28,41 +52,25 @@ class Store {
             }
         }
         $m = $this->_model;
-        if ($proxy=$m::getProxy())
-            $this->setProxy($proxy);
+
+        if ($this->_proxyConfig) {
+            $proxyType = $this->_proxyConfig['type'];
+            unset($this->_proxyConfig['type']);
+            $this->_proxyConfig['idProperty'] = $m::getIdProperty();
+            $this->setProxy(new $proxyType($this->_proxyConfig));
+        }
+        else {
+            if ($proxy=$m::createProxy()) {
+                $this->setProxy($proxy);
+            }
+        }
     }
     public function setProxy(iProxy $proxy){
         $this->_proxy = $proxy;
+        return $this;
     }
     public function getProxy(){
         return $this->_proxy;
-    }
-
-    /**
-     *
-     * @param type $records
-     * @return array
-     */
-
-    public function create($records) {
-
-        if (!$records) return false;
-        $ids = array();
-
-        if (is_object($records) || is_array($records) && !isset($records[0])) $records = array($records);
-        $modelName = $this->_model;
-
-        foreach ($records AS $record) {
-            if (!($record instanceof $modelName)) {
-                $record = $modelName::create((array)$record);
-            }
-            if ($record->save()) {
-                $this->children[] = $record;
-                $ids[] = $record->getId();
-            }
-        }
-        $this->totalCount = sizeof($ids);
-        return $ids;
     }
 
     public function clearFilter(){
@@ -168,28 +176,74 @@ class Store {
         return $this->totalCount;
     }
 
+    public function first() {
+        if (isset($this->children[0])) {
+            return $this->children[0];
+        }
+        return false;
+    }
+
+    /**
+     *
+     * @param type $records
+     * @return array
+     */
+
+    public function create($records) {
+
+        if (!$records) return false;
+        $ids = array();
+
+        if (is_object($records) || is_array($records) && !isset($records[0])) $records = array($records);
+
+        if ($this->beforeCreate($records)!==false) {
+            $modelName = $this->_model;
+            $this->children = array();
+
+            foreach ($records AS $record) {
+                if (!($record instanceof $modelName)) {
+                    $record = $modelName::create((array)$record);
+                }
+                if ($record->save(null, $this->getProxy())) {
+                    $this->children[] = $record;
+                    $ids[] = $record->getId();
+                }
+            }
+
+            $this->afterCreate($this->children);
+            $this->totalCount = sizeof($ids);
+
+        }
+        return $ids;
+    }
+
     public function update($records) {
 
         if (!$records) return false;
         $ids = array();
 
         if (is_object($records) || is_array($records) && !isset($records[0])) $records = array($records);
-        $modelName = $this->_model;
+        if ($this->beforeUpdate($records)!==false) {
+            $modelName = $this->_model;
+            $updated = array();
 
-        foreach ($records AS $record) {
-            if (!($record instanceof $this->_model)) {
-                $values = (array)$record;
-                $id = isset($values[$modelName::getIdProperty()]) ? $values[$modelName::getIdProperty()] : null;
-                if (!$id) continue;
+            foreach ($records AS $record) {
+                if (!($record instanceof $this->_model)) {
+                    $values = (array)$record;
+                    $id = isset($values[$modelName::getIdProperty()]) ? $values[$modelName::getIdProperty()] : null;
+                    if (!$id) continue;
 
-                $record = $modelName::load($id);
-                if (!$record) continue;
+                    $record = $modelName::load($id, $this->getProxy());
+                    if (!$record) continue;
 
-                $record->set($values);
+                    $record->set($values);
+                }
+                if ($record->save(null, $this->getProxy())) {
+                    $updated[] = $record;
+                    $ids[] = $record->getId();
+                }
             }
-            if ($record->save()) {
-                $ids[] = $record->getId();
-            }
+            $this->afterUpdate($updated);
         }
         return $ids;
     }
@@ -198,26 +252,36 @@ class Store {
         $ids = array();
 
         if (is_object($records) || is_array($records) && !isset($records[0])) $records = array($records);
-        $modelName = $this->_model;
+        if ($this->beforeDestroy($records)!==false) {
+            $modelName = $this->_model;
+            $destroyed = array();
 
-        foreach ($records AS $record) {
-            if (!($record instanceof $this->_model)) {
-                $values = (array)$record;
-                $id = isset($values[$modelName::getIdProperty()]) ? $values[$modelName::getIdProperty()] : null;
-                if (!$id) continue;
-                $record = $modelName::load($id);
-                if (!$record) continue;
+            foreach ($records AS $record) {
+                if (!($record instanceof $this->_model)) {
+                    $values = (array)$record;
+                    $id = isset($values[$modelName::getIdProperty()]) ? $values[$modelName::getIdProperty()] : null;
+                    if (!$id) continue;
+                    $record = $modelName::load($id, $this->getProxy());
+                    if (!$record) continue;
+                }
+                if ($record->destroy($this->getProxy())) {
+                    $destroyed[] = $record;
+                    $ids[] =$record->getId();
+                }
             }
-            if ($record->destroy()) {
-                $ids[] =$record->getId();
-            }
+            $this->afterDestroy($destroyed);
         }
         return $ids;
     }
 
     public function getById($id) {
         $modelName = $this->_model;
-        return $modelName::load($id);
+        return $modelName::load($id, $this->getProxy());
+    }
+
+    public function getBy(array $where) {
+        $modelName = $this->_model;
+        return $modelName::loadBy($where, $this->getProxy());
     }
 
     public function getIds($where) {
