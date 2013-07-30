@@ -80,8 +80,13 @@ class Model {
      */
 
     public static function makeStore(array $config=null) {
+        $storeClass = '\ws\data\Store';
         $config['model'] = get_called_class();
-        return new Store($config);
+        $cStoreClass = str_replace('\models\\', '\stores\\', $config['model']);
+        if (class_exists($cStoreClass)) {
+            $storeClass = $cStoreClass;
+        }
+        return new $storeClass($config);
     }
 
     /**
