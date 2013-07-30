@@ -90,7 +90,6 @@ class Model {
     }
 
     /**
-     * @TODO fireEvent = create
      * @param array $data
      * @return \ws\Model
      */
@@ -196,14 +195,12 @@ class Model {
         $proxy = $proxy? $proxy : $this->getProxy();
         if ($this->isWritable(self::OP_DESTROY, $proxy)) {
             $proxy->deleteById($this->getId());
+            $this->_destroyCascades();
             return true;
         }
         return false;
     }
 
-    public function isReadable() {
-        return true;
-    }
     public function isWritable($op=null, $proxy=null) {
         return true;
     }
@@ -252,11 +249,28 @@ class Model {
         if (!array_key_exists($name, static::$_associations)) return null;
         $assoc = static::$_associations[$name];
         if (!empty($assoc['many'])) {
-            $result = new Store(array('model'=> $assoc['model'], 'filters'=>array($assoc['foreignKey'] => $instance->getId())));
+            $model = $assoc['model'];
+            $result = $model::makeStore(array('filters'=>array($assoc['foreignKey'] => $instance->getId())));
         }
         else $result = $assoc['model']::load($instance->{$assoc['foreignKey']});
         return $result;
     }
+
+    protected function _destroyCascades() {
+        foreach (static::$_associations AS $name => $assoc) {
+            if (!empty($assoc['cascade'])) {
+                $result = static::_getAssociation($name, $this);
+                if ($result instanceof Model) {
+                    $result->destroy();
+                }
+                elseif($result instanceof Store){
+                    $result->load();
+                    $result->destroy($result->children);
+                }
+            }
+        }
+    }
+
 
 }
 ?>
