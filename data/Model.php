@@ -257,9 +257,9 @@ class Model {
     }
 
     protected function _destroyCascades() {
-        foreach (self::$_associations AS $name => $assoc) {
+        foreach (static::$_associations AS $name => $assoc) {
             if (!empty($assoc['cascade'])) {
-                $result = self::_getAssociation($name, $this);
+                $result = static::_getAssociation($name, $this);
                 if ($result instanceof Model) {
                     $result->destroy();
                 }
