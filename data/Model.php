@@ -168,40 +168,27 @@ class Model {
         $proxy = $proxy? $proxy : $this->getProxy();
 
         $exists = $this->getId()? $proxy->idExists($this->getId()): false;
-        $result = false;
 
-        if ($this->isWritable($exists? self::OP_UPDATE : self::OP_CREATE, $proxy)) {
-            if (!$exists) {
-                $id = $proxy->insert($this->get());
+        if (!$exists) {
+            $id = $proxy->insert($this->get());
 
-                if ($id) {
-                    $this->setId($id);
-                }
+            if ($id) {
+                $this->setId($id);
             }
-            else {
-                $data = $this->getChanges();
-                if ($data) $proxy->updateById($this->getId(),$data);
-            }
-            $result = true;
-            $this->_setModified(false);
         }
         else {
-            //exception
+            $data = $this->getChanges();
+            if ($data) $proxy->updateById($this->getId(),$data);
         }
-        return $result;
+        $this->_setModified(false);
+
+        return true;
     }
 
     public function destroy($proxy=null) {
         $proxy = $proxy? $proxy : $this->getProxy();
-        if ($this->isWritable(self::OP_DESTROY, $proxy)) {
-            $proxy->deleteById($this->getId());
-            $this->_destroyCascades();
-            return true;
-        }
-        return false;
-    }
-
-    public function isWritable($op=null, $proxy=null) {
+        $proxy->deleteById($this->getId());
+        $this->_destroyCascades();
         return true;
     }
 
