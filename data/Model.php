@@ -163,6 +163,10 @@ class Model {
         return $result;
     }
 
+    public function toArray() {
+        return $this->get();
+    }
+
     public function save(array $data=null, $proxy=null) {
         if ($data) $this->set ($data);
         $proxy = $proxy? $proxy : $this->getProxy();
