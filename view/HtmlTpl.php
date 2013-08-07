@@ -3,8 +3,10 @@ namespace ws\view;
 
 class HtmlTpl {
 
-    protected $_tpl;
-    protected $_data=array();
+    protected $_tpl,
+            $_extend,
+            $_extendNode,
+            $_data=array();
 
     public function __construct($tpl=null, $data=null) {
         if ($tpl) $this->setLayout($tpl);
@@ -28,6 +30,16 @@ class HtmlTpl {
         return isset($this->_data[$name]) ? $this->_data[$name] : null;
     }
 
+    public function siteHref(){
+        return 'http://'.\ws\ws::request()->host;
+    }
+
+    public function extend($tpl,$node='content'){
+        $this->_extend = $tpl;
+        $this->_extendNode = $node;
+        return $this;
+    }
+
     public function getLayout() {
         return $this->_tpl;
     }
@@ -38,14 +50,30 @@ class HtmlTpl {
 
     public function render($layout=null, $data=null) {
         if (!$layout) $layout = $this->getLayout();
-        if (!$layout) return '';
-        if (!is_readable('tpls/'.$layout.'.tpl.php')) return '';
         if (!$data) $data = $this->_data;
-        extract($data);
-        ob_start();
-        include 'tpls/'.$layout.'.tpl.php';
-        return ob_get_clean();
+
+        $content = $this->renderTpl($layout, $data);
+
+        if ($this->_extend) {
+            $data[$this->_extendNode] = $content;
+            $extend = new HtmlTpl($this->_extend, $data);
+            $content = $extend->render();
+        }
+
+        return $content;
     }
+
+    public function renderTpl($layout, $data=null) {
+        $content = '';
+        if (is_readable('tpls/'.$layout.'.tpl.php')) {
+            extract($data);
+            ob_start();
+            include 'tpls/'.$layout.'.tpl.php';
+            $content = ob_get_clean();
+        }
+        return $content;
+    }
+
 
     public function __toString() {
         return $this->render();
