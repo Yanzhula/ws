@@ -16,6 +16,12 @@ class Model {
 
     protected $_proxy, $_modifiedFields = array();
 
+    //Listeners
+    protected function _beforeSave(){}
+    protected function _afterSave(){}
+    protected function _beforeDestroy(){}
+    protected function _afterDestroy(){}
+
     public static function load($id, $proxy=null) {
         $instance=$data=null;
         $proxy = $proxy? $proxy : static::createProxy();
@@ -169,31 +175,35 @@ class Model {
 
     public function save(array $data=null, $proxy=null) {
         if ($data) $this->set ($data);
-        $proxy = $proxy? $proxy : $this->getProxy();
+        if ($this->_beforeSave()!==false) {
+            $proxy = $proxy? $proxy : $this->getProxy();
 
-        $exists = $this->getId()? $proxy->idExists($this->getId()): false;
+            $exists = $this->getId()? $proxy->idExists($this->getId()): false;
 
-        if (!$exists) {
-            $id = $proxy->insert($this->get());
-
-            if ($id) {
-                $this->setId($id);
+            if (!$exists) {
+                $id = $proxy->insert($this->get());
+                if ($id) {
+                    $this->setId($id);
+                }
             }
+            else {
+                $data = $this->getChanges();
+                if ($data) $proxy->updateById($this->getId(),$data);
+            }
+            $this->_afterSave();
+            $this->_setModified(false);
+            return true;
         }
-        else {
-            $data = $this->getChanges();
-            if ($data) $proxy->updateById($this->getId(),$data);
-        }
-        $this->_setModified(false);
-
-        return true;
     }
 
     public function destroy($proxy=null) {
-        $proxy = $proxy? $proxy : $this->getProxy();
-        $proxy->deleteById($this->getId());
-        $this->_destroyCascades();
-        return true;
+        if ($this->_beforeDestroy()!==false){
+            $proxy = $proxy? $proxy : $this->getProxy();
+            $proxy->deleteById($this->getId());
+            $this->_destroyCascades();
+            $this->_afterDestroy();
+            return true;
+        }
     }
 
     protected function _setModified($field) {
